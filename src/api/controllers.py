@@ -1,7 +1,7 @@
 from flask import Flask, Response
 #from flask import Resource, reqparse, fields, marshal_with,abort
 from flask_restful import reqparse, Api, Resource, reqparse, fields, marshal_with, abort
-from api.models import User, Product, Order,OrderProduct,db
+from api.models import User, Product, Order,OrderProduct,db, Department
 import json
 import re
 
@@ -22,6 +22,7 @@ productsFilds={
 
 #definicion de argumentos para agregar usuarios
 user_args = reqparse.RequestParser()
+user_args.add_argument("idUser", type=int, help="Id of the user is required")
 user_args.add_argument("username", type=str, required = True,help="Name of the user is required")
 user_args.add_argument("password", type=str, required = True,help="Password of the user is required")
 user_args.add_argument("email", type=str, required = True,help="Email of the user is required")
@@ -50,6 +51,18 @@ orderFilds = {
     'quantity': fields.Integer,
     'user_id': fields.Integer
 }
+#Definicion de argumentos para agregar deparmentos.
+Department_args=reqparse.RequestParser()
+Department_args.add_argument("idDeparmento", type=int, help="Id of the deparment is required")
+Department_args.add_argument("nameDeparmento", type=str, help="Name of the deparment is required")
+Department_args.add_argument("description", type=str, help="Description of the deparment is required")
+#CAPOS DE SALIDA
+DepartmentFilds ={
+    'idDeparmento': fields.Integer,
+    'nameDeparmento': fields.String,
+    'description': fields.String
+}
+
 
 #Metodos y validaciones para usuaruis
 class User(Resource):
@@ -360,3 +373,85 @@ class Order(Resource):
         order.description = args['description']
         db.session.commit()
         return order, 200
+
+
+
+
+#CLASE PARA DEFINIR EL DEPARTAMENTO
+class Department(Resource):
+    #VER DEPARTAMENTOS
+    @marshal_with(DepartmentFilds)
+    def get(self):
+        departaments = Department.query.all()
+        return departaments, 200
+    
+    #CREAR DEPARTAMENTOS
+    @marshal_with(DepartmentFilds)
+    def post(self):
+        args = Department_args.parse_args()
+        #PRIMER VALIDACION (no puede haber nombres vacios)
+        if not args['name'] or args['name'].isspace():
+            response = Response(json.dumps({'error': 'El nombre del departamento no puede ir vacio'}),
+            status=400,
+            mimetype='application/json')
+            return abort(response)
+        #SEGUNDA VALIDACION (no puede haber nombres repetidos)
+        if Department.query.filter_by(name=args['name']).first():
+            response = Response(json.dumps({'error': 'El departamento ya existe'}),
+                                status=400,
+                                mimetype='application/json')
+            return abort(response)
+        #TERCERA VALIDACION (no puede haber nombres con caracteres especiales)
+        if not args['name'].isalpha():
+            response = Response(json.dumps({'error': 'El nombre del departamento no puede tener caracteres especiales'}),
+                                status=400,
+                                mimetype='application/json')
+            return abort(response)
+        #UARTA VALIDACION (La descripcion no puede ir vacia)
+        if not args['description'] or args['description'].isspace():
+            response = Response(json.dumps({'error': 'La descripción del departamento no puede ir vacia'}),
+            status=400,
+            mimetype='application/json')
+            return abort(response)
+        #CUARTA VALIDACION (La descripcion no puede tener caracteres especiales)
+        if not args['description'].isalpha():
+            response = Response(json.dumps({'error': 'La descripción del departamento no puede tener caracteres especiales'}),
+                                status=400,
+                                mimetype='application/json')
+            return abort(response)
+        #SI TODAS LAS VALIDACIONES SE CUMPLEN, SE GUARDA EL
+        #DEPARTAMENTO EN LA BASE DE DATOS
+        new_departament = Department(name=args['name'], description=args['description'])
+        db.session.add(new_departament)
+        db.session.commit()
+        return new_departament, 201
+    
+    #EDITAR DEPARTAMENTOS
+    @marshal_with(DepartmentFilds)
+    def put(self, id):
+        args = Department_args.parse_args()
+        departament = Department.query.get(id)
+        if departament is None:
+            response = Response(json.dumps({'error': 'El departamento no existe'}),
+                                status=404,
+                                mimetype='application/json')
+            return abort(response)
+        departament.name = args['name']
+        departament.description = args['description']
+        db.session.commit()
+        return departament, 200
+    #BORRAR DEPARTAMENTOS
+    def delete(self, id):
+        departament = Department.query.filter_by(id=id).first()
+        if departament is None:
+            response = Response(json.dumps({'error': 'El departamento no existe'}),
+                                status=404,
+                                mimetype='application/json')
+            return abort(response)
+        db.session.delete(departament)
+        db.session.commit()
+        return '', 204
+    
+    
+
+   

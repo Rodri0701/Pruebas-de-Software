@@ -2,7 +2,7 @@ from .extension import db
 
 """ CREACION DEL MODELO PARA LA BD EN SQLITE """
 class User(db.Model): #Nombre de clase
-    id = db.Column(db.Integer, primary_key=True) #columna de la clase
+    idUser = db.Column(db.Integer, primary_key=True) #columna de la clase
     username = db.Column(db.String(80), unique=True, nullable=False) #columna de la clase
     password = db.Column(db.String(120), unique=False, nullable=False) #columna de la clase
     email = db.Column(db.String(120), unique=True, nullable=False) #columna de la clase
@@ -53,17 +53,35 @@ class Order(db.Model): #Nombre de clase
     def __repr__(self):
         return f"Order (Product ID = {self.product_id}, Quantity = {self.quantity}, User ID = {self.user_id})"
     
-""" CREACION DE LA RELACION ENTRE PRODCUTOS Y ORDEN PARA BD EN SQLITE """
+
+    """ DEPARTAMENTOS DE LA EMPRESA """
+class Department(db.Model): #Nombre de clase
+    idDeparmento = db.Column(db.Integer, primary_key=True) #columna de la clase
+    nameDepartamento = db.Column(db.String(80), unique=True, nullable=False) #columna de la clase
+    description = db.Column(db.String(120), unique=False, nullable=False) #columna de la clase
+
+
+    def __init__(self, nameDepartamento, description): #Funcion que valida los datos
+        self.nameDepartamento = nameDepartamento
+        self.description = description
+
+    
+    def __repr__(self):
+        return f"Department (Name = {self.nameDepartamento}, Description = {self.description})"
+    
+""" CREACION DE LA RELACION ENTRE PRODCUTOS Y ORDEN PARA BD EN SQLITE y DEPARAMENTO """
 class OrderProduct(db.Model): #Nombre de clase
     id = db.Column(db.Integer, primary_key=True) #columna de la clase
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False) #columna de la clase
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False) #columna de la clase
     quantity = db.Column(db.Integer, nullable=False) #columna de la clase
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False) #column
 
     def __init__(self, order_id, product_id, quantity): #Funcion que valida los datos
         self.order_id = order_id
         self.product_id = product_id
         self.quantity = quantity
+        self.department_id    
     def __repr__(self):
-        return f"OrderProduct (Order ID = {self.order_id}, Product ID = {self.product_id}, Quantity = {self.quantity})"
+        return f"OrderProduct (Order ID = {self.order_id}, Product ID = {self.product_id}, Quantity = {self.quantity}), Department ID = {self.department_id}"
 
