@@ -2,20 +2,20 @@ from flask import Flask
 from flask_restful import Api, Resource, reqparse, abort, fields, marshal_with
 from flask_restful import reqparse
 from api.extension import db
-from api.controllers import User, Product, Order, OrderProduct, Department
+from api.controllers import Users, User
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///Almacen_SF.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 api = Api(app)
 
-with app.app_context():
-    db.create_all()
+#ruta para la vista (usuarios)
 
-api.add_resource(User, '/user/<int:idUser>')
-api.add_resource(Product, '/product/<int:product_id>')
-api.add_resource(Order, '/order/<int:order_id>')
-api.add_resource(Department, '/Department/<int:Deparmant_id>')
+api.add_resource(Users, '/api/User/') #Ruta para ver TODOS LOS USUARIOS
+api.add_resource(User, '/api/User/<int:idUser>') #Ruta para ver UN USUARIO
+
 
 @app.route('/')
 def index():
