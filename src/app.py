@@ -2,7 +2,7 @@ from flask import Flask
 from flask_restful import Api, Resource, reqparse, abort, fields, marshal_with
 from flask_restful import reqparse
 from api.extension import db
-from api.controllers import Users, User
+from api.controllers import Users, User, Product,Products
 
 
 app = Flask(__name__)
@@ -15,6 +15,9 @@ api = Api(app)
 
 api.add_resource(Users, '/api/User/') #Ruta para ver TODOS LOS USUARIOS
 api.add_resource(User, '/api/User/<int:idUser>') #Ruta para ver UN USUARIO
+
+api.add_resource(Products, '/api/Product/') #Ruta para ver TODOS LOS PRODUCTOS
+api.add_resource(Product, '/api/Product/<int:idProduct>') #Ruta para ver UN PRODUCTO 
 
 
 @app.route('/')
