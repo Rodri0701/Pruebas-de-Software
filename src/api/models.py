@@ -10,16 +10,18 @@ class UserModel(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     address = db.Column(db.String(120), unique=False, nullable=True)
     phone = db.Column(db.String(15), unique=False, nullable=True)
+    role = db.Column(db.String(20), default='Employee', nullable=False)  # campo para el rol
 
-    def __init__(self, username, password, email, address, phone):
+    def __init__(self, username, password, email, address, phone, role):
         self.username = username
         self.password = password
         self.email = email
         self.address = address
         self.phone = phone
+        self.role = role
 
     def __repr__(self):
-        return f"User (Username = {self.username}, email = {self.email}, address = {self.address}, phone = {self.phone})"
+        return f"User (Username = {self.username}, email = {self.email}, address = {self.address}, phone = {self.phone}, role = {self.role})"
 
 # CLASE PARA MODELO DE PRODUCTOS
 class ProductModel(db.Model):
@@ -27,19 +29,17 @@ class ProductModel(db.Model):
     idProduct = db.Column(db.Integer, primary_key=True)  # Renombré 'id' a 'idProduct' para identificar producto
     name = db.Column(db.String(80), unique=True, nullable=False)  # Nombre del producto
     price = db.Column(db.Float, nullable=False)  # Precio del producto
-    quantity = db.Column(db.Integer, nullable=False)  # Cantidad disponible
     description = db.Column(db.Text, nullable=False)  # Descripción del producto
     stock = db.Column(db.Integer, nullable=False)  # Stock disponible
 
-    def __init__(self, name, price, quantity, description, stock):
+    def __init__(self, name, price, description, stock):
         self.name = name
         self.price = price
-        self.quantity = quantity
         self.description = description
         self.stock = stock
 
     def __repr__(self):
-        return f"Product (Name = {self.name}, Price = {self.price}, Quantity = {self.quantity}, Description = {self.description}, Stock = {self.stock})"
+        return f"Product (Name = {self.name}, Price = {self.price}, Description = {self.description}, Stock = {self.stock} )"
 
 # CLASE PARA ORDENES (ENTRE DEPARTAMENTOS)
 class OrderModel(db.Model):
@@ -53,10 +53,11 @@ class OrderModel(db.Model):
     # Relación con la clase User
     user = db.relationship('UserModel', backref='orders')
 
-    def __init__(self, user_id, total, status='pending'):
+    def __init__(self, user_id, total, status='pending', order_date=None):
         self.user_id = user_id
         self.total = total
         self.status = status
+        self.order_date = order_date if order_date else datetime.utcnow()
 
     def __repr__(self):
         return f"Order (ID = {self.idOrder}, User ID = {self.user_id}, Total = {self.total}, Status = {self.status})"
@@ -67,13 +68,18 @@ class DepartmentModel(db.Model):
     idDepartment = db.Column(db.Integer, primary_key=True)  # Renombré 'id' a 'idDepartment'
     nameDepartment = db.Column(db.String(80), unique=True, nullable=False)  # Nombre del departamento
     description = db.Column(db.String(120), nullable=False)  # Descripción del departamento
+    user_id = db.Column(db.Integer, db.ForeignKey('user.idUser'), nullable=False)  # Relación con la tabla 'user' usando idUser
 
-    def __init__(self, nameDepartment, description):
+    #relacion con la clase UserModel
+    user = db.relationship('UserModel', backref='departments', lazy=True)
+
+    def __init__(self, nameDepartment, description, user_id = None):
         self.nameDepartment = nameDepartment
         self.description = description
+        self.user_id = user_id
 
     def __repr__(self):
-        return f"Department (Name = {self.nameDepartment}, Description = {self.description})"
+        return f"Department (Name = {self.nameDepartment}, Description = {self.description}, User ID = {self.user_id})"
 
 # CLASE PARA RELACIONAR ORDENES Y PRODUCTOS
 class OrderProductModel(db.Model):

@@ -1,10 +1,12 @@
 from flask import Flask, Response
 #from flask import Resource, reqparse, fields, marshal_with,abort
 from flask_restful import reqparse, Api, Resource, reqparse, fields, marshal_with, abort
-from api.models import UserModel, ProductModel, OrderModel, OrderProductModel, db
+from api.models import UserModel, ProductModel, OrderModel, OrderProductModel,DepartmentModel ,db
 import json
 import re
 from flask_restful import reqparse
+from flask_restful import reqparse
+from datetime import datetime
 
 
 #----------------------------------------------USUARIOS----------------------------------------------#
@@ -14,6 +16,7 @@ user_args.add_argument("password", type=str, required=True, help="Password of th
 user_args.add_argument("email", type=str, required=True, help="Email of the user is required")
 user_args.add_argument("phone", type=str, required=True, help="Phone of the user is required")
 user_args.add_argument("address", type=str, required=True, help="Address of the user is required")
+user_args.add_argument("role", type=str)
 
  #CAPOS DE SALIDA
 userFields = {
@@ -21,10 +24,9 @@ userFields = {
     'username': fields.String,
     'password': fields.String,
     'email': fields.String,
+    'phone': fields.String,
     'address': fields.String,
-    'phone': fields.String
-    
-    
+    'role': fields.String
 }
 #CLASE PARA VER O AGREGAR DE TODOS LOS USUARIOS
 class Users(Resource):
@@ -121,8 +123,19 @@ class Users(Resource):
         if not re.search(r'#', args['address']):
             response = Response(json.dumps({'error': 'Address must contain a #'}), status=400, mimetype='application/json')
             return abort(response)
-        
-        user = UserModel(username=args['username'], password=args['password'], email=args['email'], phone=args['phone'], address=args['address'])
+       #22va VALIDACION (revisa si existe un admin, si lo existe inserta un usuario con el role de Employee)
+        if UserModel.query.filter_by(role='admin').first():
+            args['role'] = 'Employee'        
+        #23va VALIDACION (role solo con letras)
+        if not re.match(r'^[a-zA-Z]+$', args['role']):
+            response = Response(json.dumps({'error': 'Role must contain only letters'}), status=400, mimetype='application/json')
+            return abort(response)
+        #24va VALIDACION (solo puede ir "admin" o "Employee" en role)
+        if args['role'] not in ['admin', 'Employee']:
+            response = Response(json.dumps({'error': 'Role must be either admin or Employee'}), status=400, mimetype='application/json')
+            return abort(response)
+                
+        user = UserModel(username=args['username'], password=args['password'], email=args['email'], phone=args['phone'], address=args['address'], role=args['role'])
         db.session.add(user)
         db.session.commit()
         users = UserModel.query.all()
@@ -229,13 +242,16 @@ class User(Resource):
         if not re.match(r'^[0-9]+$', args['phone']):
             response = Response(json.dumps({'error': 'Invalid phone number'}), status=400, mimetype='application/json')
             return abort(response)
-
-        if UserModel.query.filter_by(phone=args['phone']).first() and args['phone'] != user.phone:
-            response = Response(json.dumps({'error': 'Phone already exists'}), status=400, mimetype='application/json')
+        
+        if UserModel.query.filter_by(role='admin').first():
+            response = Response(json.dumps({'error': 'Only one admin user can exist'}), status=400, mimetype='application/json')
             return abort(response)
-
+    
+        if args['role'] not in ['admin', 'Employee']:
+            response = Response(json.dumps({'error': 'Role must be either admin or Employee'}), status=400, mimetype='application/json')
+            return abort(response)
+        
         user = UserModel.query.filter_by(idUser=idUser).first()
-
         if not user:
             response = Response(json.dumps({'error': 'User not found'}), status=404, mimetype='application/json')
             return response
@@ -244,6 +260,7 @@ class User(Resource):
         user.email = args['email']
         user.address = args['address']
         user.phone = args['phone']
+        user.role = args['role']
 
         try:
             db.session.commit()
@@ -252,13 +269,12 @@ class User(Resource):
             db.session.rollback()  # Revertir cambios si hay un error
             return user, 401
 
-       
 #----------------------------------------------USUARIOS----------------------------------------------#
 
+#----------------------------------------------PRODUCTOS----------------------------------------------#
 product_args = reqparse.RequestParser()
 product_args.add_argument('name', type=str, required=True, help='Name cannot be blank')
 product_args.add_argument('price', type=float, required=True, help='Price cannot be blank')
-product_args.add_argument('quantity', type=int, required=True, help='Quantity cannot be blank')
 product_args.add_argument('description', type=str, required=True, help='Description cannot be blank')
 product_args.add_argument('stock', type=int, required=True, help='Stock cannot be blank')
 
@@ -267,7 +283,6 @@ productFields = {
     'idProduct': fields.Integer,
     'name': fields.String,
     'price': fields.Float,
-    'quantity': fields.Integer,
     'description': fields.String,
     'stock': fields.Integer
 }
@@ -348,7 +363,7 @@ class Products(Resource):
             response = Response(json.dumps({'error': 'Stock cannot be more than 1000'}), status=400, mimetype='application/json')
             return abort(response)
         
-        product = ProductModel(name=args['name'], price=args['price'], quantity= args['quantity'] ,description=args['description'], stock=args['stock'])
+        product = ProductModel(name=args['name'], price=args['price'], description=args['description'], stock=args['stock'])
         db.session.add(product)
         db.session.commit()
         products = ProductModel.query.all()
@@ -453,7 +468,6 @@ class Product(Resource):
         
         product.name = args['name']
         product.price = args['price']
-        product.quantity = args['quantity']
         product.description = args['description']
         product.stock = args['stock']
 
@@ -463,23 +477,438 @@ class Product(Resource):
         except Exception as e:
             db.session.rollback()
             return product, 500
-#----------------------------------------------PRODUCTOS----------------------------------------------#
-
 
 #----------------------------------------------PRODUCTOS----------------------------------------------#
 
+#----------------------------------------------DEPARTAMENTO----------------------------------------------#
+depto_args= reqparse.RequestParser()
+depto_args.add_argument('nameDepartment', type=str, help='Name of the department', required=True) 
+depto_args.add_argument('description', type=str, help='Description of the department', required=True)
+depto_args.add_argument('user_id', type=int, help='User ID', required=True)
+
+
+#CAMPOS DE SALIDA
+deptoFields={
+    'idDepartment': fields.Integer,
+    'nameDepartment': fields.String,
+    'description': fields.String,
+    'user_id': fields.Integer
+}
+#CLASE PARA VER O AGREGAR TODOS LOS DEPARTAMENTOS
+class Departments(Resource):
+    #VER DEPARTAMENTOS
+    @marshal_with(deptoFields)
+    def get(self):
+        departments = DepartmentModel.query.all()
+        return departments, 200
+    #AGREGAR DEPARTAMENTOS
+    @marshal_with(deptoFields)
+    def post(self):
+        args = depto_args.parse_args()
+        #1era VALIDACION (nombre vacio)
+        if not args['nameDepartment'] or args['nameDepartment'].isspace():
+            response = Response(json.dumps({'error': 'Name cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #2da VALIDACION (nombre repetido)
+        if DepartmentModel.query.filter_by(nameDepartment=args['nameDepartment']).first():
+            response = Response(json.dumps({'error': 'Name already exists'}), status=400, mimetype='application/json')
+            return abort(response)
+        #3era VALIDACION (nombre con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['nameDepartment']):
+            response = Response(json.dumps({'error': 'Name cannot contain special characters'}), status=400, mimetype='application/json')
+            return abort(response)
+        #4ta VALIDACION (descripcion vacia)
+        if not args['description'] or args['description'].isspace():
+            response = Response(json.dumps({'error': 'Description cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #5ta VALIDACION (descripcion minima 10 carateres)
+        if len(args['description']) < 10:
+            response = Response(json.dumps({'error': 'Description must be at least 10 characters long'}), status=400, mimetype='application/json')
+            return abort(response)
+        #6ta VALIDACION (descripcion maxima 1000 carateres)
+        if len(args['description']) > 1000:
+            response = Response(json.dumps({'error': 'Description cannot be longer than 1000 characters'}), status=400, mimetype='application/json')
+            return abort(response)
+        #7ma VALIDACION (descripcion con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['description']):
+            response = Response(json.dumps({'error': 'Description cannot contain special characters'}), status=400, mimetype='application/json')
+            return abort(response)
+        #8va VALIDACION (descripcion con numeros)
+        if re.search(r'\d', args['description']):
+            response = Response(json.dumps({'error': 'Description cannot contain numbers'}), status=400, mimetype='application/json')
+            return abort(response)
+        
+        depto = DepartmentModel(nameDepartment=args['nameDepartment'], description=args['description'], user_id = args['user_id'])
+        db.session.add(depto)
+        db.session.commit()
+        deptos = DepartmentModel.query.all()
+        return deptos, 201
+
+#CLASE PARA EDITAR, VER Y ELIMINAR UN DEPARTAMENTO
+class Department(Resource):
+    #VER DEPARTAMENTO
+    @marshal_with(deptoFields)
+    def get(self, idDepartment):
+        depto = DepartmentModel.query.get(idDepartment)
+        if not depto:
+            response = Response(json.dumps({'error': 'Department not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        return depto, 200
+    #BORRAR DEPARTAMENTO
+    @marshal_with(deptoFields)
+    def delete(self, idDepartment):
+        depto = DepartmentModel.query.get(idDepartment)
+        if not depto:
+            response = Response(json.dumps({'error': 'Department not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        db.session.delete(depto)
+        db.session.commit()
+        deptos = DepartmentModel.query.all()
+        return deptos, 200
+    #EDITAR DEPARTAMENTO
+    @marshal_with(deptoFields)
+    def put(self, idDepartment):
+        args = depto_args.parse_args()
+         #1era VALIDACION (nombre vacio)
+        if not args['nameDepartment'] or args['nameDepartment'].isspace():
+            response = Response(json.dumps({'error': 'Name cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #2da VALIDACION (nombre repetido)
+      
+        #3era VALIDACION (nombre con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['nameDepartment']):
+            response = Response(json.dumps({'error': 'Name cannot contain special characters'}), status=400, mimetype='application/json')
+            return abort(response)
+        #4ta VALIDACION (descripcion vacia)
+        if not args['description'] or args['description'].isspace():
+            response = Response(json.dumps({'error': 'Description cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #5ta VALIDACION (descripcion minima 10 carateres)
+        if len(args['description']) < 10:
+            response = Response(json.dumps({'error': 'Description must be at least 10 characters long'}), status=400, mimetype='application/json')
+            return abort(response)
+        #6ta VALIDACION (descripcion maxima 1000 carateres)
+        if len(args['description']) > 1000:
+            response = Response(json.dumps({'error': 'Description cannot be longer than 1000 characters'}), status=400, mimetype='application/json')
+            return abort(response)
+        #7ma VALIDACION (descripcion con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['description']):
+            response = Response(json.dumps({'error': 'Description cannot contain special characters'}), status=400, mimetype='application/json')
+            return abort(response)
+        #8va VALIDACION (descripcion con numeros)
+        if re.search(r'\d', args['description']):
+            response = Response(json.dumps({'error': 'Description cannot contain numbers'}), status=400, mimetype='application/json')
+            return abort(response)
+
+        depto = DepartmentModel.query.filter_by(idDepartment=idDepartment).first()    
+        if not depto:
+            response = Response(json.dumps({'error': 'Department not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        depto.nameDepartment = args['nameDepartment']
+        depto.description = args['description']
+        depto.user_id = args['user_id']
+        try:
+            db.session.commit()
+            return depto, 200
+        except Exception as e:
+            db.session.rollback()
+            return depto, 500
 
 #----------------------------------------------DEPARTAMENTO----------------------------------------------#
-
-
-#----------------------------------------------DEPARTAMENTO----------------------------------------------#
-
 
 #----------------------------------------------ORDENES----------------------------------------------#
+orders_args = reqparse.RequestParser()
+orders_args.add_argument('user_id', type=int, required=True, help='User id is required')
+orders_args.add_argument('order_date', type=str, required=True, help='Order date is required')
+orders_args.add_argument('total', type=int, required=True, help='Total is required')
+orders_args.add_argument('status', type=str, help='Status is required')
 
+#CAPOS DE SALIDA
+ordersFields={
+    'idOrder': fields.Integer,
+    'user_id': fields.Integer,
+    'order_date': fields.String,
+    'total': fields.Float,
+    'status': fields.String
+}
 
+#CLASE PARA MOSTRAR O AGREGAR TODAS LAS ORDENES
+class Orders(Resource):
+    #MOSTRAR TODAS LAS ORDENES
+    @marshal_with(ordersFields)
+    def get(self):
+        orders = OrderModel.query.all()
+        return orders, 200
+    #AGREGAR ORDENES
+    @marshal_with(ordersFields)
+    def post(self):
+        args = orders_args.parse_args()
+        #1ra VALIDACION (user_id vacio)
+        if not args['user_id']:
+            response = Response(json.dumps({'error': 'User id cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #2da VALIDACION (user_id no existe)
+        user = UserModel.query.filter_by(idUser=args['user_id']).first()
+        if not user:
+            response = Response(json.dumps({'error': 'User not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        #3ra VALIDACION (user_id no es un numero)
+        if not isinstance(args['user_id'], int):
+            response = Response(json.dumps({'error': 'User id must be a number'}), status=400, mimetype='application/json')
+            return abort(response)
+         #4ta VALIDACION (total vacio)
+        if not args['total']:
+            response = Response(json.dumps({'error': 'Total cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #5ta VALIDACION (total no es un numero)
+        if not isinstance(args['total'], int):
+            response = Response(json.dumps({'error': 'Total must be a number'}), status=400, mimetype='application/json')
+            return abort(response)
+        #6ta VALIDACION (total menor a 0)
+        if args['total'] < 0:
+            response = Response(json.dumps({'error': 'Total cannot be less than 0'}), status=400, mimetype='application/json')
+            return abort(response)
+        #7ma VALIDACION (status vacio)
+        if not args['status']:
+            response = Response(json.dumps({'error': 'Status cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #8va VALIDACION (status no es un string)
+        if not isinstance(args['status'], str):
+            response = Response(json.dumps({'error': 'Status must be a string'}), status=400, mimetype='application/json')
+            return abort(response)
+        #9na VALIDACION (status no es pending, approved o rejected)
+        if args['status'] not in ['pending', 'approved', 'rejected']:
+            response = Response(json.dumps({'error': 'Status must be pending, approved or rejected'}), status=400, mimetype='application/json')
+            return abort(response)
+        #10ma VALIDACION (status con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain special characters'}), status=400, mimetype='application/json')
+            return abort(response) 
+        #11ma VALIDACION (status con espacios en blanco)
+        if re.search(r'\s', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain spaces'}), status=400,
+                                mimetype='application/json')
+            return abort(response)
+        #12ma VALIDACION (status con numeros)
+        if re.search(r'\d', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain numbers'}), status=400,
+                                mimetype='application/json')
+            return abort(response)
+        #13va VALIDACION (status con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain special characters'}), status=400,
+                                mimetype='application/json')
+            return abort(response)
+
+        order = OrderModel(user_id=args['user_id'], total=args['total'], status=args['status'])
+        db.session.add(order)
+        db.session.commit()
+        orders = OrderModel.query.all()
+        return orders, 201
+        
+#CLASE PARA VER, EDITAR Y BORRAR ORDENES
+class Order(Resource):
+    #MOSTRAR ORDEN
+    @marshal_with(ordersFields)
+    def get(self, idOrder):
+        order = OrderModel.query.get(idOrder)
+        if not order:
+            response = Response(json.dumps({'error': 'Order not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        return order, 200
+    #BORRAR ORDEN
+    @marshal_with(ordersFields)
+    def delete(self, idOrder):
+        order = OrderModel.query.get(idOrder)
+        if not order:
+            response = Response(json.dumps({'error': 'Order not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        db.session.delete(order)
+        db.session.commit()
+        return {'message': 'Order deleted'}, 200
+    #EDITAR ORDEN
+    @marshal_with(ordersFields)
+    def put(self, idOrder):
+        args = orders_args.parse_args()
+         #1ra VALIDACION (user_id vacio)
+        if not args['user_id']:
+            response = Response(json.dumps({'error': 'User id cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #2da VALIDACION (user_id no existe)
+        user = UserModel.query.filter_by(idUser=args['user_id']).first()
+        if not user:
+            response = Response(json.dumps({'error': 'User not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        #3ra VALIDACION (user_id no es un numero)
+        if not isinstance(args['user_id'], int):
+            response = Response(json.dumps({'error': 'User id must be a number'}), status=400, mimetype='application/json')
+            return abort(response)
+         #4ta VALIDACION (total vacio)
+        if not args['total']:
+            response = Response(json.dumps({'error': 'Total cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #5ta VALIDACION (total no es un numero)
+        if not isinstance(args['total'], (int, float)):
+            response = Response(json.dumps({'error': 'Total must be a number'}), status=400, mimetype='application/json')
+            return abort(response)
+        #6ta VALIDACION (total menor a 0)
+        if args['total'] < 0:
+            response = Response(json.dumps({'error': 'Total cannot be less than 0'}), status=400, mimetype='application/json')
+            return abort(response)
+        #7ma VALIDACION (status vacio)
+        if not args['status']:
+            response = Response(json.dumps({'error': 'Status cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #8va VALIDACION (status no es un string)
+        if not isinstance(args['status'], str):
+            response = Response(json.dumps({'error': 'Status must be a string'}), status=400, mimetype='application/json')
+            return abort(response)
+        #9na VALIDACION (status no es pending, approved o rejected)
+        if args['status'] not in ['pending', 'approved', 'rejected']:
+            response = Response(json.dumps({'error': 'Status must be pending, approved or rejected'}), status=400, mimetype='application/json')
+            return abort(response)
+        #10ma VALIDACION (status con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain special characters'}), status=400, mimetype='application/json')
+            return abort(response) 
+        #11ma VALIDACION (status con espacios en blanco)
+        if re.search(r'\s', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain spaces'}), status=400,
+                                mimetype='application/json')
+            return abort(response)
+        #12ma VALIDACION (status con numeros)
+        if re.search(r'\d', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain numbers'}), status=400,
+                                mimetype='application/json')
+            return abort(response)
+        #13va VALIDACION (status con caracteres especiales)
+        if re.search(r'[^a-zA-Z0-9\s]', args['status']):
+            response = Response(json.dumps({'error': 'Status cannot contain special characters'}), status=400,
+                                mimetype='application/json')
+            return abort(response)
+       
+
+        ord = OrderModel.query.filter_by(idOrder=idOrder).first()
+        if not ord:
+            response = Response(json.dumps({'error': 'Order not found'}), status=404, mimetype='application/json')
+            return abort(response)
+      
+        ord.status = args['status']
+        ord.total = args['total']
+        db.session.commit()
+        response = Response(json.dumps({'message': 'Order updated successfully'}), status=200, mimetype='application/json')
+        return abort(response)
+    
 #----------------------------------------------ORDENES----------------------------------------------#
 
 #----------------------------------------------ORDENES-PRODUCTOS----------------------------------------------#
+orderPro_args = reqparse.RequestParser()
+orderPro_args.add_argument('order_id', type=int, required=True, help='Order id is required')
+orderPro_args.add_argument('product_id', type=int, required=True, help='Product id is required')
+orderPro_args.add_argument('quantity', type=int, required=True, help='Quantity is required')
 
+#CAMPOS DE SALIDA
+orderProFields = {
+    'idOrderProduct': fields.Integer,
+    'order_id': fields.Integer,
+    'product_id': fields.Integer,
+    'quantity': fields.Integer
+}
+
+#CLASE PARA MOSTRAR Y AGREGAR ORDENESPRODUCTOS
+class OrdersProducts(Resource):
+    #MOSTRAR ORDENESPRODUCTOS
+    @marshal_with(orderProFields)
+    def get(self):
+        orderPro = OrderProductModel.query.all()
+        return orderPro, 200
+    #AGREGAR ORDENESPRODUCTOS
+    @marshal_with(orderProFields)
+    def post(self):
+        args = orderPro_args.parse_args()
+        #1ra VALIDACION (quantity vacio)
+        if not args['quantity']:
+            response = Response(json.dumps({'error': 'Quantity cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #2da VALIDACION (quantity menor a 1)
+        if args['quantity'] < 1:
+            response = Response(json.dumps({'error': 'Quantity cannot be less than 1'}), status=400, mimetype='application/json')
+            return abort(response)
+        #3ra VALIDACION (quantity no es un numero)
+        if not isinstance(args['quantity'], int):
+            response = Response(json.dumps({'error': 'Quantity must be a number'}), status=400, mimetype='application/json')
+            return abort(response)
+        #4ta VALIDACION (order_id no existe)
+        if not OrderModel.query.get(args['order_id']):
+            response = Response(json.dumps({'error': 'Order id does not exist'}), status=400, mimetype='application/json')
+            return abort(response)
+        #5ta VALIDACION (product_id no existe)
+        if not ProductModel.query.get(args['product_id']):
+            response = Response(json.dumps({'error': 'Product id does not exist'}), status=400, mimetype='application/json')
+            return abort(response)
+        #6ta VALIDACION (order_id no existe)
+        if not OrderModel.query.get(args['order_id']):
+            response = Response(json.dumps({'error': 'Order id does not exist'}), status=400, mimetype='application/json')
+            return abort(response)
+        #7ma VALIDACION (order_id no puede repetirse)
+        if OrderProductModel.query.filter_by(order_id=args['order_id']).first():
+            response = Response(json.dumps({'error': 'Order id already exists'}), status=400, mimetype='application/json')
+            return abort(response)
+        orderPro = OrderProductModel(order_id=args['order_id'], product_id=args['product_id'], quantity=args['quantity'])
+        db.session.add(orderPro)
+        db.session.commit()
+        return orderPro, 201
+    
+#CLASE PARA EDITAR, VER Y BORRAR ORDENESPRODUCTOS
+class OrderProduct(Resource):
+    #VER UNA ORDENPRODUCTOS
+    @marshal_with(orderProFields)
+    def get(self, idOrderProduct):
+        orderPro = OrderProductModel.query.filter_by(idOrderProduct = idOrderProduct).first()
+        if not orderPro:
+            response = Response(json.dumps({'error': 'Order product not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        return orderPro, 200
+    #BORRAR ORDENPRODUCTOS
+    @marshal_with(orderProFields)
+    def delete(self, idOrderProduct):
+        orderPro = OrderProductModel.query.filter_by(idOrderProduct = idOrderProduct).first()
+        if not orderPro:
+            response = Response(json.dumps({'error': 'Order product not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        db.session.delete(orderPro)
+        db.session.commit()
+        return orderPro, 200
+    
+    #EDITAR ORDENPRODUCTOS
+    @marshal_with(orderProFields)
+    def put(self, idOrderProduct):
+        args = orderPro_args.parse_args()
+        #1ra VALIDACION (quantity vacio)
+        if not args['quantity']:
+            response = Response(json.dumps({'error': 'Quantity cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
+        #2da VALIDACION (quantity menor a 1)
+        if args['quantity'] < 1:
+            response = Response(json.dumps({'error': 'Quantity cannot be less than 1'}), status=400, mimetype='application/json')
+            return abort(response)
+        #3ra VALIDACION (quantity no es un numero)
+        if not isinstance(args['quantity'], int):
+            response = Response(json.dumps({'error': 'Quantity must be a number'}), status=400, mimetype='application/json')
+            return abort(response)
+        #4ta VALIDACION (order_id no existe)
+        if not OrderModel.query.get(args['order_id']):
+            response = Response(json.dumps({'error': 'Order id does not exist'}), status=400, mimetype='application/json')
+            return abort(response)
+        #5ta VALIDACION (product_id no existe)
+        if not ProductModel.query.get(args['product_id']):
+            response = Response(json.dumps({'error': 'Product id does not exist'}), status=400, mimetype='application/json')
+            return abort(response)
+        orderPro = OrderProductModel.query.filter_by(idOrderProduct = idOrderProduct).first()
+        if not orderPro:
+            response = Response(json.dumps({'error': 'Order product not found'}), status=404, mimetype='application/json')
+            return abort(response)
+        orderPro.quantity = args['quantity']
+        db.session.commit()
+        return orderPro, 200
 #----------------------------------------------ORDENES-PRODUCTOS----------------------------------------------#
