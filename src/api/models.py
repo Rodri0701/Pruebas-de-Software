@@ -32,14 +32,15 @@ class ProductModel(db.Model):
     description = db.Column(db.Text, nullable=False)  # Descripción del producto
     stock = db.Column(db.Integer, nullable=False)  # Stock disponible
 
-    def __init__(self, name, price, description, stock):
+    def __init__(self, idProduct,name, price, description, stock):
+        self.idProduct = idProduct
         self.name = name
         self.price = price
         self.description = description
         self.stock = stock
 
     def __repr__(self):
-        return f"Product (Name = {self.name}, Price = {self.price}, Description = {self.description}, Stock = {self.stock} )"
+        return f"Product (IdNombre = {self.idProduct},Name = {self.name}, Price = {self.price}, Description = {self.description}, Stock = {self.stock} )"
 
 # CLASE PARA ORDENES (ENTRE DEPARTAMENTOS)
 class OrderModel(db.Model):

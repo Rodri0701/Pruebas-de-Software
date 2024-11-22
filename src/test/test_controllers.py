@@ -1,12 +1,13 @@
 from flask.testing import FlaskClient
 import pytest
+import unittest
 from flask import Flask,json
 from api.models import db, UserModel,ProductModel,OrderModel,OrderProductModel,DepartmentModel
 from api.controllers import User, Users, Product, Products, Order, Orders, Department, Departments, OrderProduct, OrdersProducts
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Api, Resource,reqparse
 from unittest.mock import patch, MagicMock, Mock
-import unittest
+
 
 
 @pytest.fixture
@@ -39,6 +40,7 @@ def app():
     with app.app_context():
         db.drop_all()  # Eliminar las tablas después de las pruebas
 
+#-----------------------------------PYTEST-----------------------------------#
 
 @pytest.fixture
 def client(app: Flask):
@@ -74,18 +76,18 @@ def test_insert_user(client):
 #PRUEBA 3
  #INSERTAR CAMPOS VACIAS (PRUEBA DESTINADA A FALLAR (REVISAR EL JSON GENERADO CON EL ERROR))
 def test_insert_user_empty_fields(client):
-    response = client.post('/api/User/', json={
-        "username": " ",
+  user_data = {
+    "username": " ",
         "password": "contrasegura",
         "email": "sadfjkn@gmail.com",
         "phone": 1234567981,
         "address": "sfhdsf #44",
         "role": "Employee"
-    })
-    assert response.status_code == 400
-    data = json.loads(response.data)
-    assert 'field' in data
-    assert data['field'] == 'username'
+  }
+  client.post('/api/User/', json=user_data)
+  response = client.post('/api/User/', json=user_data)
+  assert response.status_code == 400
+  assert response.json == {'error': 'Username cannot be empty'}
     
 #PRUEBA 4
 #INSERTAR UN USUARIO CON UN USERNAME YA EXISTENTE
@@ -107,4 +109,130 @@ def test_insert_user_existing_username(client):
         assert response.json == {'error': 'Username already exists'}
 
      
+#PRUEBA 5
+#INSERTAR UN USUARIO CON UN EMAIL INVALIDO
+def test_insert_user_existing_email(client):
+        # Inserta un usuario con nombre de usuario duplicado
+        user_data = {
+            "username": "XXXXXX",
+            "password": "XXXXXXXXXXXX",
+            "email": "XXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "phone": "4499506008",
+            "address": "BasureroMuncipal #48451",
+            "role": "admin"
+        }
+        client.post('/api/User/', json=user_data)  # Inserta el usuario duplicado
+        response = client.post('/api/User/', json=user_data)
 
+        # Verifica que la respuesta es la esperada: error 400
+        assert response.status_code == 400
+        assert response.json == {'error': 'Invalid email format'}
+
+#PRUEBA 6
+#INSERTAR PHONE CON LETRAS
+def test_insert_user_phone_letters(client):
+        # Inserta un usuario con nombre de usuario duplicado
+        user_data = {
+            "username": "RoEsPa",
+            "password": "XXXXXXXXXXXX",
+            "email": "rodrigoesparza117@gmail.com",
+            "phone": "XXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "address": "BasureroMuncipal #48451",
+            "role": "admin"
+        }
+        client.post('/api/User/', json=user_data)  # Inserta el usuario duplicado
+        response = client.post('/api/User/', json=user_data)
+
+        # Verifica que la respuesta es la esperada: error 400
+        assert response.status_code == 400
+        assert response.json == {'error': 'Invalid phone number'}
+
+#PRUEBA 7
+#VERIFICAR EMAIL
+def test_verify_email(client):
+    mock_user_repository = MagicMock()
+    mock_user_repository.get_all.return_value = {
+     "email": "john@usebouncer.com",
+        "status": "deliverable",
+        "reason": "accepted_email",
+        "domain": {
+            "name": "usebouncer.com",
+            "acceptAll": "no",
+            "disposable": "no",
+            "free": "no"
+        },
+        "account": {
+            "role": "no",
+            "disabled": "no",
+            "fullMailbox": "no"
+        },
+        "dns": {
+            "type": "MX",
+            "record": "aspmx.l.google.com."
+        },
+        "provider": "google.com",
+        "score": 100,
+        "toxic": "unknown",
+        "toxicity": 0
+   }
+
+    assert mock_user_repository.get_all.return_value['status'] == 'deliverable'
+    assert mock_user_repository.get_all.return_value['reason'] == 'accepted_email'
+#-----------------------------------PYTEST-----------------------------------#
+
+#-----------------------------------PATCH-----------------------------------#
+#PRUEBA 8
+#OBTENER PRODUCTOS CON PATCH
+@patch.object(Product, 'get')
+def test_product_get(mock_get):
+    mock_product = Mock()
+    mock_product.idProduct = 1
+    mock_product.name = 'Product1'
+    mock_product.price = 10.99
+    mock_product.description = "XXXXXXXXXXXXXXXXXX"
+    mock_product.stock = 10
+    mock_get.return_value = mock_product
+    
+    result = Product.get()
+    assert result == mock_product
+    assert result.idProduct == 1
+    assert result.name == 'Product1'
+    assert result.price == 10.99
+    assert result.description == "XXXXXXXXXXXXXXXXXX"
+    assert result.stock == 10
+
+
+#CLASE PARA HACER TEST DE PRODUCTOS UNO A UNO
+class TestProduct(unittest.TestCase):
+
+    def setUp(self):
+        self.app = Flask(__name__)
+        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        self.app.config['DEBUG'] = True
+        self.api = Api(self.app)
+        self.api.add_resource(Product, '/api/Product/<int:idProduct>')
+        self.client = self.app.test_client()
+
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+
+        db.init_app(self.app)
+        db.create_all()
+#PRUEBA 9 
+#OBTENER UN PRODUCTO USANDO PATCH Y SU ID
+    @patch('api.controllers.ProductModel.query')
+    def test_get_product(self, mock_query):
+        # Mock de la base de datos
+        mock_query.get.return_value = ProductModel(
+            idProduct=1, name='Papel impresora', price=205.45, 
+            description="Papel que va dentro de la impresora", stock=50
+        )
+        
+        # Hacer la solicitud GET con el ID adecuado
+        response = self.client.get('/api/Product/1')  # Usa un valor real para el ID
+
+        # Verificar la respuesta
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Papel impresora', response.get_data(as_text=True))
+        self.assertIn('205.45', response.get_data(as_text=True))  # Verifica el contenido
