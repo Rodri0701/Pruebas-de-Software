@@ -405,9 +405,9 @@ class Product(Resource):
             response = Response(json.dumps({'error': 'Name cannot contain special characters'}), status=400, mimetype='application/json')
             return abort(response)
         #3era VALIDACION (nombre repetido)
-        #if ProductModel.query.filter_by(name=args['name']).first():
-         #   response = Response(json.dumps({'error': 'Name already exists'}), status=400, mimetype='application/json')
-          #  return abort(response)
+        if ProductModel.query.filter_by(name=args['name']).first():
+            response = Response(json.dumps({'error': 'Name already exists'}), status=400, mimetype='application/json')
+            return abort(response)
         #4ta VALIDACION (precio vacio)
         if not args['price']:
             response = Response(json.dumps({'error': 'Price cannot be empty'}), status=400, mimetype='application/json')
@@ -466,17 +466,22 @@ class Product(Resource):
             response = Response(json.dumps({'error': 'Product not found'}), status=404, mimetype='application/json')
             return abort(response)
         
+        
+        print("Product before update:", product.name, product.price, product.description, product.stock)
         product.name = args['name']
         product.price = args['price']
         product.description = args['description']
         product.stock = args['stock']
+        print("Product after update:", product.name, product.price, product.description, product.stock)
 
         try:
+            db.session.add(product)
             db.session.commit()
             return product, 200
         except Exception as e:
             db.session.rollback()
-            return product, 500
+            print("Error during database commit:", str(e))
+            return {"error": "Database error", "details": str(e)}, 500
 
 #----------------------------------------------PRODUCTOS----------------------------------------------#
 
@@ -537,7 +542,9 @@ class Departments(Resource):
         if re.search(r'\d', args['description']):
             response = Response(json.dumps({'error': 'Description cannot contain numbers'}), status=400, mimetype='application/json')
             return abort(response)
-        
+        if not args['user_id']:
+            response = Response(json.dumps({'error': 'User ID cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
         depto = DepartmentModel(nameDepartment=args['nameDepartment'], description=args['description'], user_id = args['user_id'])
         db.session.add(depto)
         db.session.commit()
@@ -574,7 +581,9 @@ class Department(Resource):
             response = Response(json.dumps({'error': 'Name cannot be empty'}), status=400, mimetype='application/json')
             return abort(response)
         #2da VALIDACION (nombre repetido)
-      
+        if DepartmentModel.query.filter_by(nameDepartment=args['nameDepartment']).first():
+            response = Response(json.dumps({'error': 'Name already exists'}), status=400, mimetype='application/json')
+            return abort(response)
         #3era VALIDACION (nombre con caracteres especiales)
         if re.search(r'[^a-zA-Z0-9\s]', args['nameDepartment']):
             response = Response(json.dumps({'error': 'Name cannot contain special characters'}), status=400, mimetype='application/json')
@@ -599,11 +608,17 @@ class Department(Resource):
         if re.search(r'\d', args['description']):
             response = Response(json.dumps({'error': 'Description cannot contain numbers'}), status=400, mimetype='application/json')
             return abort(response)
-
+        if not args['user_id']:
+            response = Response(json.dumps({'error': 'User ID cannot be empty'}), status=400, mimetype='application/json')
+            return abort(response)
         depto = DepartmentModel.query.filter_by(idDepartment=idDepartment).first()    
         if not depto:
             response = Response(json.dumps({'error': 'Department not found'}), status=404, mimetype='application/json')
             return abort(response)
+        if depto.nameDepartment != args['nameDepartment']:
+            if DepartmentModel.query.filter_by(nameDepartment=args['nameDepartment']).first():
+                response = Response(json.dumps({'error': 'Name already exists'}), status=400, mimetype='application/json')
+                return abort(response)
         depto.nameDepartment = args['nameDepartment']
         depto.description = args['description']
         depto.user_id = args['user_id']
@@ -857,7 +872,7 @@ class OrdersProducts(Resource):
         orderPro = OrderProductModel(order_id=args['order_id'], product_id=args['product_id'], quantity=args['quantity'])
         db.session.add(orderPro)
         db.session.commit()
-        return orderPro, 201
+        return {'message': 'Order product added successfully'}
     
 #CLASE PARA EDITAR, VER Y BORRAR ORDENESPRODUCTOS
 class OrderProduct(Resource):
