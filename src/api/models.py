@@ -1,5 +1,6 @@
 from .extension import db
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # CREACION DEL MODELO PARA LA BD EN SQLITE
 class UserModel(db.Model):
@@ -14,7 +15,7 @@ class UserModel(db.Model):
 
     def __init__(self, username, password, email, address, phone, role):
         self.username = username
-        self.password = password
+        self.password = self.set_password(password)  # Encriptamos la contraseña al crear el objeto
         self.email = email
         self.address = address
         self.phone = phone
@@ -22,6 +23,17 @@ class UserModel(db.Model):
 
     def __repr__(self):
         return f"User (Username = {self.username}, email = {self.email}, address = {self.address}, phone = {self.phone}, role = {self.role})"
+    
+    def set_password(self, password):
+        """Encripta la contraseña utilizando un hash seguro."""
+        return generate_password_hash(password)
+    
+    def check_password(self, password):
+        """Verifica si la contraseña ingresada coincide con el hash almacenado."""
+        return check_password_hash(self.password, password)
+    
+
+
 
 # CLASE PARA MODELO DE PRODUCTOS
 class ProductModel(db.Model):
