@@ -49,10 +49,11 @@ Si solo necesitas navegadores específicos, puedes usar:
   ```bash
     npm install playwright-firefox
   ```
--**Solo para WebKit**
-```bash
+- **Solo para Webkit**
+  ```bash
     npm install playwright-webkit
-```
+  ```
+
 5. Configurar Playwright para Pruebas
 
 Para generar una configuración inicial de Playwright, ejecuta:
@@ -60,12 +61,6 @@ Para generar una configuración inicial de Playwright, ejecuta:
 npx playwright install
 ```
 Esto asegurará que todos los navegadores necesarios estén instalados.
-
-Si estás configurando un entorno de pruebas, puedes iniciar con:
-```bash
-npx playwright test init
-```
-Esto creará una estructura base para pruebas (como una carpeta tests y un archivo de configuración playwright.config.ts).
 
 6. Ejecutar las Pruebas
 
