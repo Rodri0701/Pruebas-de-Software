@@ -1,70 +1,73 @@
-# SF_Almacen_y_Gestion
-Este proyecto permite gestionar usuarios, productos, órdenes y departamentos dentro de una aplicación con base de datos SQLite. Cada entidad tiene sus correspondientes relaciones y atributos que facilitan la administración y el registro de las operaciones comerciales.
+# Pruebas automatizadas en front end "Mercado Libre"
+
 
 # DESCRIPCIÓN:  
-  El sistema es una plataforma que permite gestionar usuarios y sus órdenes. Los usuarios pueden tener productos y estar asignados a departamentos. Las órdenes pueden incluir productos específicos, y cada orden tiene un total y un estado que puede ser "pendiente", "procesado", etc.
-La aplicación gestiona usuarios, productos y órdenes con las siguientes características:
+Pruebas automatizadas para verificar diversas funciones de la pagina *"Mercado Libre"*
 
-  - Usuarios: La tabla user almacena la información del usuario (nombre, correo, dirección, teléfono, etc.), con un campo adicional para el rol del usuario (empleado o administrador).
-  - Productos: La tabla product permite gestionar los productos disponibles (nombre, precio, descripción, stock).
-  - Órdenes: La tabla order gestiona las órdenes realizadas por los usuarios, con su respectivo total, fecha y estado (pendiente, procesada, etc.).
-  - Departamentos: La tabla department define los departamentos dentro de la empresa y su relación con los usuarios.
-  - Relación Órdenes y Productos: La tabla OrderProduct relaciona productos con órdenes específicas y la cantidad de cada producto.
-
-  # Instalación
+# Instalación
 
     Clona el repositorio: git clone https://github.com/Rodri0701/SF_Almacen.git
 
 
-# Crea un entorno virtual (opcional):
+1. Instalar Node.js
 
-    python3 -m venv venv
-    source venv/bin/activate  # En Linux/macOS
-    venv\Scripts\activate     # En Windows
+Antes de instalar Playwright, asegúrate de tener Node.js instalado en tu sistema.
 
-# Instala las dependencias:
+    Descarga e instala desde la página oficial de Node.js.
+    Verifica la instalación ejecutando:
 
-Asegúrate de tener pip actualizado e instala las librerías necesarias:
+    node -v
+    npm -v
 
-    pip install -r requirements.txt
+2. Crear un Proyecto Node.js
 
-El archivo requirements.txt debe incluir las siguientes dependencias:
+Si aún no tienes un proyecto configurado, crea uno:
 
-  - Flask==2.0.3
-  - Flask-SQLAlchemy==2.5.1
+    Abre tu terminal y navega al directorio de tu proyecto.
+    Ejecuta:
 
-# Configura la base de datos:
+    npm init -y
 
-Asegúrate de que extension.py (donde se configura db) esté correctamente configurado. El archivo debe tener lo siguiente:
+    Esto creará un archivo package.json.
 
-  - from flask_sqlalchemy import SQLAlchemy
-  - db = SQLAlchemy()
+3. Instalar Playwright
 
-Luego, inicializa la base de datos en tu aplicación:
+Para instalar Playwright, usa el siguiente comando:
 
-  - from extension import db
+npm install playwright
 
-# Crea las tablas en la base de datos
-db.create_all()
+Este comando descargará Playwright junto con los navegadores compatibles (Chromium, Firefox, y WebKit).
 
-Ejecuta la aplicación:
+Si solo necesitas navegadores específicos, puedes usar:
 
-    flask run
+*Solo para Chromium*
+npm install playwright-chromium
 
-Estructura de la Base de Datos
+*Solo para Firefox*
+npm install playwright-firefox
 
-Las siguientes tablas están presentes en la base de datos:
+*Solo para WebKit*
+npm install playwright-webkit
 
-  user: Almacena usuarios (idUser, username, password, email, address, phone, role).
-  product: Almacena productos (idProduct, name, price, description, stock).
-  order: Almacena órdenes (idOrder, user_id, order_date, total, status).
-  department: Almacena departamentos (idDepartment, nameDepartment, description, user_id).
-  OrderProduct: Relaciona productos con órdenes (idOrderProduct, order_id, product_id, quantity).
+4. Configurar Playwright para Pruebas
 
-# Uso
+Para generar una configuración inicial de Playwright, ejecuta:
 
-  Crear un usuario: Utiliza el modelo UserModel para crear un usuario en la base de datos.
+npx playwright install
 
-  Agregar productos: Puedes añadir productos mediante el modelo ProductModel.
+Esto asegurará que todos los navegadores necesarios estén instalados.
 
-  Realizar una orden: Usa el modelo OrderModel para crear órdenes, asociando productos con OrderProductModel.
+Si estás configurando un entorno de pruebas, puedes iniciar con:
+
+npx playwright test init
+
+Esto creará una estructura base para pruebas (como una carpeta tests y un archivo de configuración playwright.config.ts).
+5. Escribir tu Primera Prueba
+
+Crea un archivo de prueba, por ejemplo, tests/example.spec.ts
+
+6. Ejecutar las Pruebas
+
+Corre las pruebas con:
+
+npx playwright test
